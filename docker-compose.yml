@@ -1,0 +1,216 @@
+services:
+
+  # ---------- Infrastructure ----------
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    ports:
+      - "9092:9092"
+    environment:
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092,CONTROLLER://0.0.0.0:29093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_LOG_DIRS: /tmp/kraft-combined-logs
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+
+  cassandra:
+    image: cassandra:4.1
+    ports:
+      - "9042:9042"
+    environment:
+      CASSANDRA_CLUSTER_NAME: CryptoCluster
+      CASSANDRA_DC: dc1
+      CASSANDRA_ENDPOINT_SNITCH: GossipingPropertyFileSnitch
+      MAX_HEAP_SIZE: 1G
+      HEAP_NEWSIZE: 200M
+    volumes:
+      - cassandra-data:/var/lib/cassandra
+    healthcheck:
+      test: ["CMD-SHELL", "cqlsh -e 'describe cluster' >/dev/null 2>&1"]
+      interval: 20s
+      timeout: 10s
+      retries: 30
+
+  cassandra-init:
+    image: cassandra:4.1
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    volumes:
+      - ./ddl/cassandra:/ddl:ro
+    entrypoint: ["bash", "-c"]
+    command: ["cqlsh cassandra -f /ddl/init.cql && echo 'cassandra schema applied'"]
+    restart: "no"
+
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: crypto
+      POSTGRES_USER: crypto
+      POSTGRES_PASSWORD: crypto
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U crypto -d crypto"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  postgres-init:
+    image: postgres:16-alpine
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./ddl/warehouse:/ddl:ro
+    environment:
+      PGPASSWORD: crypto
+    entrypoint: ["bash", "-c"]
+    command: ["psql -h postgres -U crypto -d crypto -f /ddl/init.sql && echo 'warehouse schema applied'"]
+    restart: "no"
+
+
+  ingestion:
+    build: ./ingestion
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SYMBOLS: ${SYMBOLS:-XBTUSD,ETHUSD}
+      BITMEX_WS_URL: ${BITMEX_WS_URL:-wss://www.bitmex.com/realtime}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    restart: unless-stopped
+
+  whale-alert:
+    build: ./streaming
+    command: ["python", "-u", "whale_alert.py"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+      cassandra-init:
+        condition: service_completed_successfully
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      CASSANDRA_HOSTS: cassandra
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    restart: unless-stopped
+
+  volatility-monitor:
+    build: ./streaming
+    command: ["python", "-u", "volatility_monitor.py"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+      cassandra-init:
+        condition: service_completed_successfully
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      CASSANDRA_HOSTS: cassandra
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    restart: unless-stopped
+
+  market-momentum:
+    build: ./streaming
+    command: ["python", "-u", "market_momentum.py"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+      cassandra-init:
+        condition: service_completed_successfully
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      CASSANDRA_HOSTS: cassandra
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    restart: unless-stopped
+
+  trades-sink:
+    build: ./streaming
+    command: ["python", "-u", "trades_sink.py"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+      cassandra-init:
+        condition: service_completed_successfully
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      CASSANDRA_HOSTS: cassandra
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    restart: unless-stopped
+
+  # ---------- Warehouse consumers + batch jobs ----------
+
+  trades-consumer:
+    build: ./consumer
+    command: ["python", "-u", "trades_consumer.py"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres-init:
+        condition: service_completed_successfully
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      POSTGRES_DSN: postgresql://crypto:crypto@postgres:5432/crypto
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    restart: unless-stopped
+
+  quotes-consumer:
+    build: ./consumer
+    command: ["python", "-u", "quotes_consumer.py"]
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres-init:
+        condition: service_completed_successfully
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      POSTGRES_DSN: postgresql://crypto:crypto@postgres:5432/crypto
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    restart: unless-stopped
+
+  batch-scheduler:
+    build: ./batch
+    depends_on:
+      postgres-init:
+        condition: service_completed_successfully
+    environment:
+      POSTGRES_DSN: postgresql://crypto:crypto@postgres:5432/crypto
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    restart: unless-stopped
+
+  # ---------- API ----------
+
+  api:
+    build: ./api
+    ports:
+      - "8000:8000"
+    depends_on:
+      cassandra-init:
+        condition: service_completed_successfully
+      postgres-init:
+        condition: service_completed_successfully
+    environment:
+      CASSANDRA_HOSTS: cassandra
+      POSTGRES_DSN: postgresql://crypto:crypto@postgres:5432/crypto
+    restart: unless-stopped
+
+volumes:
+  cassandra-data:
+  postgres-data:
