@@ -86,6 +86,34 @@ services:
     command: ["psql -h postgres -U crypto -d crypto -f /ddl/init.sql && echo 'warehouse schema applied'"]
     restart: "no"
 
+  auth-db:
+    image: postgres:16-alpine
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: auth
+      POSTGRES_USER: auth
+      POSTGRES_PASSWORD: auth
+    volumes:
+      - auth-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U auth -d auth"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
 
   ingestion:
     build: ./ingestion
@@ -197,6 +225,48 @@ services:
 
   # ---------- API ----------
 
+  auth-service-1:
+    build: ./auth-service
+    ports:
+      - "8101:8000"
+    depends_on:
+      auth-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      AUTH_DB_DSN: postgresql://auth:auth@auth-db:5432/auth
+      REDIS_URL: redis://redis:6379/0
+      AUTH_TOKEN_TTL_SECONDS: ${AUTH_TOKEN_TTL_SECONDS:-86400}
+      INSTANCE_ID: auth-service-1
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()\""]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+    restart: unless-stopped
+
+  auth-service-2:
+    build: ./auth-service
+    ports:
+      - "8102:8000"
+    depends_on:
+      auth-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      AUTH_DB_DSN: postgresql://auth:auth@auth-db:5432/auth
+      REDIS_URL: redis://redis:6379/0
+      AUTH_TOKEN_TTL_SECONDS: ${AUTH_TOKEN_TTL_SECONDS:-86400}
+      INSTANCE_ID: auth-service-2
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()\""]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+    restart: unless-stopped
+
   api:
     build: ./api
     ports:
@@ -214,3 +284,5 @@ services:
 volumes:
   cassandra-data:
   postgres-data:
+  auth-postgres-data:
+  redis-data:
