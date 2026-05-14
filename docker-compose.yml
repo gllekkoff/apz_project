@@ -281,6 +281,28 @@ services:
       POSTGRES_DSN: postgresql://crypto:crypto@postgres:5432/crypto
     restart: unless-stopped
 
+  api-gateway:
+    build: ./api-gateway
+    ports:
+      - "8080:8000"
+    depends_on:
+      auth-service-1:
+        condition: service_healthy
+      auth-service-2:
+        condition: service_healthy
+    environment:
+      AUTH_SERVICE_URLS: http://auth-service-1:8000,http://auth-service-2:8000
+      MARKET_SERVICE_URL: ${MARKET_SERVICE_URL:-http://api:8000}
+      REPORT_SERVICE_URL: ${REPORT_SERVICE_URL:-http://api:8000}
+      UPSTREAM_TIMEOUT_SECONDS: "10"
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()\""]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+    restart: unless-stopped
+
 volumes:
   cassandra-data:
   postgres-data:
