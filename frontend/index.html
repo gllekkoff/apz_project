@@ -498,9 +498,17 @@
     clearError();
   }
 
+  function extractError(detail) {
+    if (!detail) return null;
+    if (typeof detail === 'string') return detail;
+    if (Array.isArray(detail)) return detail.map(e => e.msg || JSON.stringify(e)).join(', ');
+    if (typeof detail === 'object') return detail.msg || JSON.stringify(detail);
+    return String(detail);
+  }
+
   function showError(msg) {
     const el = document.getElementById('auth-error');
-    el.textContent = Array.isArray(msg) ? msg.map(e => e.msg).join(', ') : msg;
+    el.textContent = typeof msg === 'string' ? msg : extractError(msg);
     el.style.display = 'block';
   }
 
@@ -528,7 +536,7 @@
       const res = await apiCall('POST', '/auth/login', { username, password });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
-        showError(d.detail || `Login failed (${res.status})`);
+        showError(extractError(d.detail) || `Login failed (${res.status})`);
         return;
       }
       const data = await res.json();
@@ -545,11 +553,13 @@
     const username = document.getElementById('reg-username').value.trim();
     const password = document.getElementById('reg-password').value;
     if (!username || !password) { showError('Enter username and password.'); return; }
+    if (username.length < 3 || username.length > 64) { showError('Username must be between 3 and 64 characters.'); return; }
+    if (password.length < 6 || password.length > 256) { showError('Password must be between 6 and 256 characters.'); return; }
     try {
       const res = await apiCall('POST', '/auth/register', { username, password });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
-        showError(d.detail || `Registration failed (${res.status})`);
+        showError(extractError(d.detail) || `Registration failed (${res.status})`);
         return;
       }
       document.getElementById('login-username').value = username;
