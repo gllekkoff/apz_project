@@ -4,6 +4,18 @@ A distributed real-time cryptocurrency market data platform built as a microserv
 
 ---
 
+## Team
+
+| # | Name | Responsibility |
+|---|---|---|
+| Person 1 | Yuliana Hrynda | API Gateway — routing, token validation, gateway tests |
+| Person 2 | Roman Pavlosiuk | Auth Service — register/login/logout, Redis sessions, two instances, failover |
+| Person 3 | Iryna Denysova | Market Data Service — Cassandra repository, trades/momentum/alerts endpoints, replication |
+| Person 4 | Andrii Kravchuk | Reporting Service — PostgreSQL warehouse, batch jobs, hourly reports, analytics |
+| Person 5 | Khrystyna Korets | Ingestion, streaming jobs, synthetic data producer, frontend dashboard, smoke tests |
+
+---
+
 ## System Architecture
 
 The platform is split into five logical layers: data ingestion, stream processing, storage, API services, and the frontend client. Each layer is independently deployable and communicates only through well-defined interfaces — either Kafka topics or HTTP.
