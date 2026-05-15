@@ -338,7 +338,7 @@ services:
     environment:
       AUTH_SERVICE_URLS: http://auth-service-1:8000,http://auth-service-2:8000
       MARKET_SERVICE_URL: ${MARKET_SERVICE_URL:-http://market-data-service:8000}
-      REPORT_SERVICE_URL: ${REPORT_SERVICE_URL:-http://api:8000}
+      REPORT_SERVICE_URL: ${REPORT_SERVICE_URL:-http://reporting-service:8000}
       UPSTREAM_TIMEOUT_SECONDS: "10"
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     healthcheck:
@@ -348,6 +348,21 @@ services:
       retries: 15
     restart: unless-stopped
 
+  reporting-service:
+    build: ./reporting-service
+    ports:
+      - "8200:8000"
+    depends_on:
+      postgres-init:
+        condition: service_completed_successfully
+    environment:
+      POSTGRES_DSN: postgresql://crypto:crypto@postgres:5432/crypto
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()\""]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+    restart: unless-stopped
 volumes:
   cassandra-data:
   cassandra2-data:
