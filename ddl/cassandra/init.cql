@@ -2,7 +2,12 @@
 -- Run once on a fresh cluster.
 
 CREATE KEYSPACE IF NOT EXISTS crypto
-    WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};
+    WITH replication = {'class': 'NetworkTopologyStrategy', 'dc1': 2}
+    AND durable_writes = true;
+
+ALTER KEYSPACE crypto
+    WITH replication = {'class': 'NetworkTopologyStrategy', 'dc1': 2}
+    AND durable_writes = true;
 
 USE crypto;
 

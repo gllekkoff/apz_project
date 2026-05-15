@@ -35,6 +35,7 @@ services:
     environment:
       CASSANDRA_CLUSTER_NAME: CryptoCluster
       CASSANDRA_DC: dc1
+      CASSANDRA_SEEDS: cassandra
       CASSANDRA_ENDPOINT_SNITCH: GossipingPropertyFileSnitch
       MAX_HEAP_SIZE: 1G
       HEAP_NEWSIZE: 200M
@@ -46,10 +47,34 @@ services:
       timeout: 10s
       retries: 30
 
+  cassandra-2:
+    image: cassandra:4.1
+    ports:
+      - "9043:9042"
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    environment:
+      CASSANDRA_CLUSTER_NAME: CryptoCluster
+      CASSANDRA_DC: dc1
+      CASSANDRA_SEEDS: cassandra
+      CASSANDRA_ENDPOINT_SNITCH: GossipingPropertyFileSnitch
+      MAX_HEAP_SIZE: 1G
+      HEAP_NEWSIZE: 200M
+    volumes:
+      - cassandra2-data:/var/lib/cassandra
+    healthcheck:
+      test: ["CMD-SHELL", "cqlsh -e 'describe cluster' >/dev/null 2>&1"]
+      interval: 20s
+      timeout: 10s
+      retries: 30
+
   cassandra-init:
     image: cassandra:4.1
     depends_on:
       cassandra:
+        condition: service_healthy
+      cassandra-2:
         condition: service_healthy
     volumes:
       - ./ddl/cassandra:/ddl:ro
@@ -137,7 +162,7 @@ services:
         condition: service_completed_successfully
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      CASSANDRA_HOSTS: cassandra
+      CASSANDRA_HOSTS: cassandra,cassandra-2
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     restart: unless-stopped
 
@@ -151,7 +176,7 @@ services:
         condition: service_completed_successfully
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      CASSANDRA_HOSTS: cassandra
+      CASSANDRA_HOSTS: cassandra,cassandra-2
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     restart: unless-stopped
 
@@ -165,7 +190,7 @@ services:
         condition: service_completed_successfully
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      CASSANDRA_HOSTS: cassandra
+      CASSANDRA_HOSTS: cassandra,cassandra-2
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     restart: unless-stopped
 
@@ -179,7 +204,7 @@ services:
         condition: service_completed_successfully
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      CASSANDRA_HOSTS: cassandra
+      CASSANDRA_HOSTS: cassandra,cassandra-2
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     restart: unless-stopped
 
@@ -277,8 +302,26 @@ services:
       postgres-init:
         condition: service_completed_successfully
     environment:
-      CASSANDRA_HOSTS: cassandra
+      CASSANDRA_HOSTS: cassandra,cassandra-2
       POSTGRES_DSN: postgresql://crypto:crypto@postgres:5432/crypto
+    restart: unless-stopped
+
+  market-data-service:
+    build: ./market-data-service
+    ports:
+      - "8100:8000"
+    depends_on:
+      cassandra-init:
+        condition: service_completed_successfully
+    environment:
+      CASSANDRA_HOSTS: cassandra,cassandra-2
+      CASSANDRA_KEYSPACE: crypto
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()\""]
+      interval: 10s
+      timeout: 5s
+      retries: 15
     restart: unless-stopped
 
   api-gateway:
@@ -290,9 +333,11 @@ services:
         condition: service_healthy
       auth-service-2:
         condition: service_healthy
+      market-data-service:
+        condition: service_healthy
     environment:
       AUTH_SERVICE_URLS: http://auth-service-1:8000,http://auth-service-2:8000
-      MARKET_SERVICE_URL: ${MARKET_SERVICE_URL:-http://api:8000}
+      MARKET_SERVICE_URL: ${MARKET_SERVICE_URL:-http://market-data-service:8000}
       REPORT_SERVICE_URL: ${REPORT_SERVICE_URL:-http://api:8000}
       UPSTREAM_TIMEOUT_SECONDS: "10"
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
@@ -305,6 +350,7 @@ services:
 
 volumes:
   cassandra-data:
+  cassandra2-data:
   postgres-data:
   auth-postgres-data:
   redis-data:
