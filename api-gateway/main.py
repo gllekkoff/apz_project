@@ -5,6 +5,7 @@ from typing import Iterable, List, Optional
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 
@@ -48,6 +49,14 @@ app = FastAPI(
     title="API Gateway",
     description="Public entry point. Routes /auth, /market, and /reports to internal services.",
     version="1.0.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 _auth_pool = itertools.cycle(AUTH_SERVICE_URLS)

@@ -149,7 +149,26 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       SYMBOLS: ${SYMBOLS:-XBTUSD,ETHUSD}
       BITMEX_WS_URL: ${BITMEX_WS_URL:-wss://www.bitmex.com/realtime}
+      SYNTHETIC_MODE: ${SYNTHETIC_MODE:-false}
+      SYNTHETIC_RATE: ${SYNTHETIC_RATE:-10}
+      SYNTHETIC_WHALE_RATE: ${SYNTHETIC_WHALE_RATE:-0.005}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    restart: unless-stopped
+
+  synthetic-producer:
+    build: ./ingestion
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SYMBOLS: ${SYMBOLS:-XBTUSD,ETHUSD}
+      SYNTHETIC_MODE: "true"
+      SYNTHETIC_RATE: ${SYNTHETIC_RATE:-10}
+      SYNTHETIC_WHALE_RATE: ${SYNTHETIC_WHALE_RATE:-0.02}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    profiles:
+      - demo
     restart: unless-stopped
 
   whale-alert:
@@ -363,6 +382,16 @@ services:
       timeout: 5s
       retries: 15
     restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    restart: unless-stopped
+
 volumes:
   cassandra-data:
   cassandra2-data:

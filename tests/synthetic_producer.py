@@ -51,8 +51,8 @@ def parse_args() -> argparse.Namespace:
     ap.add_argument(
         "--duration",
         type=int,
-        default=60,
-        help="seconds to run; pass 0 to run until Ctrl-C",
+        default=0,
+        help="seconds to run; 0 (default) runs until Ctrl-C",
     )
     ap.add_argument(
         "--seed",

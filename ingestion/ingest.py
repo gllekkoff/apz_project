@@ -1,15 +1,11 @@
-"""Bitmex WebSocket -> Kafka ingestion service.
-
-Subscribes to trade and quote channels on Bitmex public WS API and republishes
-each message to Kafka. One service instance per cluster; horizontal scaling is
-not needed at the data rates Bitmex publishes for a handful of symbols.
-"""
-
 import asyncio
 import json
 import logging
 import os
+import random
 import signal
+import uuid
+from datetime import datetime, timezone
 from typing import Optional
 
 import websockets
@@ -20,6 +16,9 @@ KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
 SYMBOLS = [s.strip() for s in os.getenv("SYMBOLS", "XBTUSD,ETHUSD").split(",") if s.strip()]
 TRADES_TOPIC = os.getenv("TRADES_TOPIC", "trades-raw")
 QUOTES_TOPIC = os.getenv("QUOTES_TOPIC", "quotes-raw")
+SYNTHETIC_MODE = os.getenv("SYNTHETIC_MODE", "false").lower() in ("true", "1", "yes")
+SYNTHETIC_RATE = float(os.getenv("SYNTHETIC_RATE", "10"))
+SYNTHETIC_WHALE_RATE = float(os.getenv("SYNTHETIC_WHALE_RATE", "0.005"))
 RECONNECT_BACKOFF_SECONDS = 5
 
 logging.basicConfig(
@@ -27,6 +26,8 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
 )
 log = logging.getLogger("ingest")
+
+_SYMBOL_START_PRICES = {"XBTUSD": 67_000.0, "ETHUSD": 3_500.0}
 
 
 def _flt(v) -> float:
@@ -57,6 +58,42 @@ def normalize_quote(row: dict) -> dict:
     }
 
 
+async def produce_synthetic(producer: AIOKafkaProducer, stop: asyncio.Event) -> None:
+    prices = {s: _SYMBOL_START_PRICES.get(s, 1000.0) for s in SYMBOLS}
+    interval = 1.0 / max(SYNTHETIC_RATE, 0.1)
+    sent = 0
+    log.info("synthetic mode started: rate=%.1f/s/symbol whale_rate=%.4f", SYNTHETIC_RATE, SYNTHETIC_WHALE_RATE)
+
+    while not stop.is_set():
+        for symbol in SYMBOLS:
+            prices[symbol] *= 1.0 + random.uniform(-0.0005, 0.0005)
+            is_whale = random.random() < SYNTHETIC_WHALE_RATE
+            size = random.uniform(80_000, 250_000) if is_whale else random.uniform(100, 5_000)
+            now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+            price = round(prices[symbol], 2)
+
+            trade = {
+                "symbol": symbol,
+                "trade_time": now,
+                "price": price,
+                "size": round(size, 2),
+                "home_notional": round(size / price, 6),
+                "foreign_notional": round(size, 2),
+                "side": random.choice(["Buy", "Sell"]),
+                "trade_id": uuid.uuid4().hex,
+            }
+            await producer.send_and_wait(
+                TRADES_TOPIC,
+                json.dumps(trade).encode(),
+                key=symbol.encode(),
+            )
+            sent += 1
+            if sent % 500 == 0:
+                log.info("synthetic: sent %d trades", sent)
+
+        await asyncio.sleep(interval)
+
+
 async def consume_bitmex(producer: AIOKafkaProducer, stop: asyncio.Event) -> None:
     subscribe_msg = {
         "op": "subscribe",
@@ -79,13 +116,11 @@ async def consume_bitmex(producer: AIOKafkaProducer, stop: asyncio.Event) -> Non
                     raw = await ws.recv()
                     data = json.loads(raw)
 
-                    # BitMEX sends control messages (welcome, subscribe ack, etc.)
                     if "table" not in data or "data" not in data:
                         if "error" in data:
                             log.warning("bitmex error: %s", data)
                         continue
 
-                    # "partial" is an initial snapshot; "insert" is new data.
                     action = data.get("action")
                     if action not in ("insert", "partial"):
                         continue
@@ -128,7 +163,7 @@ async def main() -> None:
         enable_idempotence=True,
     )
     await producer.start()
-    log.info("kafka producer started (bootstrap=%s)", KAFKA_BOOTSTRAP)
+    log.info("kafka producer started (bootstrap=%s, synthetic=%s)", KAFKA_BOOTSTRAP, SYNTHETIC_MODE)
 
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
@@ -136,7 +171,10 @@ async def main() -> None:
         loop.add_signal_handler(sig, stop.set)
 
     try:
-        await consume_bitmex(producer, stop)
+        if SYNTHETIC_MODE:
+            await produce_synthetic(producer, stop)
+        else:
+            await consume_bitmex(producer, stop)
     finally:
         await producer.stop()
         log.info("producer stopped")

@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Crypto Market Dashboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface2: #21262d;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --accent: #58a6ff;
+      --green: #3fb950;
+      --red: #f85149;
+      --yellow: #d29922;
+      --orange: #f0883e;
+      --radius: 8px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      font-size: 14px;
+      min-height: 100vh;
+    }
+
+    /* ── Auth screen ── */
+    #auth-screen {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    .auth-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 40px 48px;
+      width: 100%;
+      max-width: 380px;
+    }
+
+    .auth-card h1 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: var(--text);
+    }
+
+    .auth-card p.subtitle {
+      color: var(--muted);
+      margin-bottom: 28px;
+      font-size: 13px;
+    }
+
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 24px;
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 8px 16px;
+      font-size: 14px;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+    }
+
+    .tab-btn.active {
+      color: var(--text);
+      border-bottom-color: var(--accent);
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 14px;
+      padding: 8px 12px;
+      outline: none;
+      transition: border-color .15s;
+    }
+
+    input:focus { border-color: var(--accent); }
+
+    .btn {
+      width: 100%;
+      background: var(--accent);
+      border: none;
+      border-radius: 6px;
+      color: #0d1117;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 10px;
+      margin-top: 8px;
+      transition: opacity .15s;
+    }
+
+    .btn:hover { opacity: .85; }
+    .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+    .error-msg {
+      color: var(--red);
+      font-size: 12px;
+      margin-top: 12px;
+      display: none;
+    }
+
+    /* ── Dashboard ── */
+    #dashboard { display: none; }
+
+    .topbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      height: 52px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .topbar-logo {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: -.3px;
+    }
+
+    .symbol-tabs {
+      display: flex;
+      gap: 4px;
+    }
+
+    .symbol-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 12px;
+      transition: all .15s;
+    }
+
+    .symbol-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #0d1117;
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .user-badge {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .logout-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 12px;
+      padding: 4px 12px;
+      transition: all .15s;
+    }
+
+    .logout-btn:hover {
+      border-color: var(--red);
+      color: var(--red);
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      padding: 20px 24px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .card-header {
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      padding: 12px 16px;
+    }
+
+    .card-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .card-badge {
+      background: var(--surface2);
+      border-radius: 12px;
+      color: var(--muted);
+      font-size: 11px;
+      padding: 2px 8px;
+    }
+
+    .refresh-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      transition: color .15s;
+    }
+
+    .refresh-btn:hover { color: var(--accent); }
+
+    .card-body { padding: 0; overflow: hidden; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th {
+      background: var(--surface2);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .5px;
+      padding: 8px 12px;
+      text-align: left;
+      text-transform: uppercase;
+    }
+
+    td {
+      border-top: 1px solid var(--border);
+      color: var(--text);
+      font-size: 12px;
+      padding: 8px 12px;
+    }
+
+    tr:hover td { background: var(--surface2); }
+
+    .empty-state {
+      color: var(--muted);
+      font-size: 12px;
+      padding: 32px;
+      text-align: center;
+    }
+
+    .loading {
+      color: var(--muted);
+      font-size: 12px;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .badge-buy  { color: var(--green); font-weight: 600; }
+    .badge-sell { color: var(--red);   font-weight: 600; }
+
+    .val-up   { color: var(--green); }
+    .val-down { color: var(--red); }
+    .val-warn { color: var(--yellow); }
+    .val-crit { color: var(--orange); }
+
+    .status-dot {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      margin-right: 6px;
+    }
+
+    .dot-live { background: var(--green); animation: pulse 2s infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: .4; }
+    }
+
+    .full-width { grid-column: 1 / -1; }
+
+    .stats-row {
+      display: flex;
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .stat-box {
+      background: var(--surface2);
+      border-radius: 6px;
+      flex: 1;
+      padding: 10px 12px;
+    }
+
+    .stat-label { color: var(--muted); font-size: 11px; margin-bottom: 4px; }
+    .stat-value { font-size: 18px; font-weight: 700; }
+
+    .auto-refresh-label {
+      color: var(--muted);
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Auth Screen ── -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <h1>Crypto Market</h1>
+    <p class="subtitle">Real-time market data &amp; analytics</p>
+
+    <div class="tabs">
+      <button class="tab-btn active" id="tab-login" onclick="showTab('login')">Sign in</button>
+      <button class="tab-btn" id="tab-register" onclick="showTab('register')">Register</button>
+    </div>
+
+    <div id="login-form">
+      <div class="form-group">
+        <label>Username</label>
+        <input id="login-username" type="text" placeholder="your_username" autocomplete="username" />
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input id="login-password" type="password" placeholder="••••••••" autocomplete="current-password" />
+      </div>
+      <button class="btn" onclick="doLogin()">Sign in</button>
+    </div>
+
+    <div id="register-form" style="display:none">
+      <div class="form-group">
+        <label>Username</label>
+        <input id="reg-username" type="text" placeholder="choose_a_username" autocomplete="username" />
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input id="reg-password" type="password" placeholder="min 6 characters" autocomplete="new-password" />
+      </div>
+      <button class="btn" onclick="doRegister()">Create account</button>
+    </div>
+
+    <p class="error-msg" id="auth-error"></p>
+  </div>
+</div>
+
+<!-- ── Dashboard ── -->
+<div id="dashboard">
+  <div class="topbar">
+    <div class="topbar-left">
+      <span class="topbar-logo">📈 CryptoDash</span>
+      <div class="symbol-tabs">
+        <button class="symbol-btn active" id="sym-XBTUSD" onclick="setSymbol('XBTUSD')">XBTUSD</button>
+        <button class="symbol-btn" id="sym-ETHUSD" onclick="setSymbol('ETHUSD')">ETHUSD</button>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <span class="auto-refresh-label"><span class="status-dot dot-live"></span>live</span>
+      <span class="user-badge" id="user-badge"></span>
+      <button class="logout-btn" onclick="doLogout()">Sign out</button>
+    </div>
+  </div>
+
+  <div class="main-grid">
+
+    <!-- Live Trades -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Recent Trades</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span class="card-badge" id="trades-count">—</span>
+          <button class="refresh-btn" onclick="loadTrades()">↻</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div id="trades-table"><div class="loading">Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- Momentum -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Market Momentum</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span class="card-badge" id="momentum-count">—</span>
+          <button class="refresh-btn" onclick="loadMomentum()">↻</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div id="momentum-table"><div class="loading">Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- Whale Alerts -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">🐋 Whale Alerts</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span class="card-badge" id="whale-count">—</span>
+          <button class="refresh-btn" onclick="loadWhaleAlerts()">↻</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div id="whale-table"><div class="loading">Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- Volatility Alerts -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">⚡ Volatility Alerts</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span class="card-badge" id="vol-count">—</span>
+          <button class="refresh-btn" onclick="loadVolatilityAlerts()">↻</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div id="vol-table"><div class="loading">Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- Hourly Reports -->
+    <div class="card full-width">
+      <div class="card-header">
+        <span class="card-title">Hourly Reports</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span class="card-badge" id="hourly-count">—</span>
+          <button class="refresh-btn" onclick="loadHourlyReports()">↻</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div id="hourly-table"><div class="loading">Loading…</div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const GATEWAY = window.GATEWAY_URL || 'http://localhost:8080';
+  let token = null;
+  let currentSymbol = 'XBTUSD';
+  let refreshTimer = null;
+
+  function showTab(tab) {
+    document.getElementById('login-form').style.display    = tab === 'login'    ? '' : 'none';
+    document.getElementById('register-form').style.display = tab === 'register' ? '' : 'none';
+    document.getElementById('tab-login').classList.toggle('active',    tab === 'login');
+    document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+    clearError();
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('auth-error');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+
+  function clearError() {
+    const el = document.getElementById('auth-error');
+    el.textContent = '';
+    el.style.display = 'none';
+  }
+
+  async function apiCall(method, path, body, authToken) {
+    const headers = { 'Content-Type': 'application/json' };
+    if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+    const opts = { method, headers };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch(`${GATEWAY}${path}`, opts);
+    return res;
+  }
+
+  async function doLogin() {
+    clearError();
+    const username = document.getElementById('login-username').value.trim();
+    const password = document.getElementById('login-password').value;
+    if (!username || !password) { showError('Enter username and password.'); return; }
+    try {
+      const res = await apiCall('POST', '/auth/login', { username, password });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        showError(d.detail || `Login failed (${res.status})`);
+        return;
+      }
+      const data = await res.json();
+      token = data.token;
+      document.getElementById('user-badge').textContent = data.user?.username || username;
+      showDashboard();
+    } catch (e) {
+      showError('Cannot reach gateway. Is it running?');
+    }
+  }
+
+  async function doRegister() {
+    clearError();
+    const username = document.getElementById('reg-username').value.trim();
+    const password = document.getElementById('reg-password').value;
+    if (!username || !password) { showError('Enter username and password.'); return; }
+    try {
+      const res = await apiCall('POST', '/auth/register', { username, password });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        showError(d.detail || `Registration failed (${res.status})`);
+        return;
+      }
+      document.getElementById('login-username').value = username;
+      document.getElementById('login-password').value = password;
+      showTab('login');
+      await doLogin();
+    } catch (e) {
+      showError('Cannot reach gateway. Is it running?');
+    }
+  }
+
+  async function doLogout() {
+    if (token) {
+      await apiCall('POST', '/auth/logout', null, token).catch(() => {});
+      token = null;
+    }
+    clearInterval(refreshTimer);
+    document.getElementById('dashboard').style.display = 'none';
+    document.getElementById('auth-screen').style.display = 'flex';
+  }
+
+  function showDashboard() {
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    loadAll();
+    refreshTimer = setInterval(loadAll, 15000);
+  }
+
+  function setSymbol(sym) {
+    currentSymbol = sym;
+    document.querySelectorAll('.symbol-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(`sym-${sym}`).classList.add('active');
+    loadAll();
+  }
+
+  function loadAll() {
+    loadTrades();
+    loadMomentum();
+    loadWhaleAlerts();
+    loadVolatilityAlerts();
+    loadHourlyReports();
+  }
+
+  function fmt(n, dec = 2) {
+    if (n == null) return '—';
+    return Number(n).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  }
+
+  function fmtTime(s) {
+    if (!s) return '—';
+    const d = new Date(s);
+    return isNaN(d) ? s : d.toLocaleTimeString();
+  }
+
+  function fmtDatetime(s) {
+    if (!s) return '—';
+    const d = new Date(s);
+    return isNaN(d) ? s : d.toLocaleString();
+  }
+
+  async function get(path) {
+    const res = await apiCall('GET', path, null, token);
+    if (res.status === 401) { doLogout(); throw new Error('session expired'); }
+    if (!res.ok) throw new Error(`${res.status}`);
+    return res.json();
+  }
+
+  async function loadTrades() {
+    const el = document.getElementById('trades-table');
+    try {
+      const rows = await get(`/market/trades?symbol=${currentSymbol}&limit=20`);
+      document.getElementById('trades-count').textContent = rows.length;
+      if (!rows.length) { el.innerHTML = `<div class="empty-state">No trades yet</div>`; return; }
+      el.innerHTML = `<table>
+        <thead><tr><th>Time</th><th>Price</th><th>Size (USD)</th><th>Side</th></tr></thead>
+        <tbody>${rows.map(r => `<tr>
+          <td>${fmtTime(r.trade_time)}</td>
+          <td>$${fmt(r.price)}</td>
+          <td>${fmt(r.size, 0)}</td>
+          <td class="${r.side === 'Buy' ? 'badge-buy' : 'badge-sell'}">${r.side || '—'}</td>
+        </tr>`).join('')}</tbody>
+      </table>`;
+    } catch (e) {
+      el.innerHTML = `<div class="empty-state">Error: ${e.message}</div>`;
+    }
+  }
+
+  async function loadMomentum() {
+    const el = document.getElementById('momentum-table');
+    try {
+      const rows = await get(`/market/momentum/${currentSymbol}?minutes=30`);
+      document.getElementById('momentum-count').textContent = rows.length + ' bars';
+      if (!rows.length) { el.innerHTML = `<div class="empty-state">No momentum data yet (wait ~1 min)</div>`; return; }
+      const recent = rows.slice(0, 15);
+      el.innerHTML = `<table>
+        <thead><tr><th>Minute</th><th>Price</th><th>Change %</th><th>Volume</th><th>Buy/Sell</th></tr></thead>
+        <tbody>${recent.map(r => {
+          const chg = parseFloat(r.price_change_pct) || 0;
+          const cls = chg > 0 ? 'val-up' : chg < 0 ? 'val-down' : '';
+          return `<tr>
+            <td>${fmtTime(r.minute_ts)}</td>
+            <td>$${fmt(r.current_price)}</td>
+            <td class="${cls}">${chg >= 0 ? '+' : ''}${fmt(chg, 3)}%</td>
+            <td>${fmt(r.volume, 0)}</td>
+            <td>${fmt(r.buy_sell_ratio, 2)}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>`;
+    } catch (e) {
+      el.innerHTML = `<div class="empty-state">Error: ${e.message}</div>`;
+    }
+  }
+
+  async function loadWhaleAlerts() {
+    const el = document.getElementById('whale-table');
+    try {
+      const rows = await get(`/market/alerts/whale/${currentSymbol}?limit=15`);
+      document.getElementById('whale-count').textContent = rows.length;
+      if (!rows.length) { el.innerHTML = `<div class="empty-state">No whale alerts yet</div>`; return; }
+      el.innerHTML = `<table>
+        <thead><tr><th>Time</th><th>Size (USD)</th><th>Threshold</th><th>Dev %</th><th>Price</th><th>Side</th></tr></thead>
+        <tbody>${rows.map(r => `<tr>
+          <td>${fmtTime(r.alert_time)}</td>
+          <td class="val-crit">${fmt(r.trade_size, 0)}</td>
+          <td>${fmt(r.threshold_95p, 0)}</td>
+          <td class="val-warn">+${fmt(r.deviation_percent, 1)}%</td>
+          <td>$${fmt(r.price)}</td>
+          <td class="${r.side === 'Buy' ? 'badge-buy' : 'badge-sell'}">${r.side || '—'}</td>
+        </tr>`).join('')}</tbody>
+      </table>`;
+    } catch (e) {
+      el.innerHTML = `<div class="empty-state">Error: ${e.message}</div>`;
+    }
+  }
+
+  async function loadVolatilityAlerts() {
+    const el = document.getElementById('vol-table');
+    try {
+      const rows = await get(`/market/alerts/volatility/${currentSymbol}?limit=15`);
+      document.getElementById('vol-count').textContent = rows.length;
+      if (!rows.length) { el.innerHTML = `<div class="empty-state">No volatility alerts yet</div>`; return; }
+      el.innerHTML = `<table>
+        <thead><tr><th>Time</th><th>Curr Vol</th><th>Prev Vol</th><th>Ratio</th></tr></thead>
+        <tbody>${rows.map(r => `<tr>
+          <td>${fmtTime(r.alert_time)}</td>
+          <td class="val-crit">${fmt(r.current_volatility, 4)}</td>
+          <td>${fmt(r.previous_volatility, 4)}</td>
+          <td class="val-warn">${fmt(r.ratio, 2)}×</td>
+        </tr>`).join('')}</tbody>
+      </table>`;
+    } catch (e) {
+      el.innerHTML = `<div class="empty-state">Error: ${e.message}</div>`;
+    }
+  }
+
+  async function loadHourlyReports() {
+    const el = document.getElementById('hourly-table');
+    try {
+      const rows = await get(`/reports/hourly?symbol=${currentSymbol}&hours=12`);
+      document.getElementById('hourly-count').textContent = rows.length + ' hrs';
+      if (!rows.length) { el.innerHTML = `<div class="empty-state">No hourly reports yet (batch runs hourly)</div>`; return; }
+      el.innerHTML = `<table>
+        <thead><tr>
+          <th>Hour</th><th>Trades</th><th>Volume (USD)</th>
+          <th>Min Price</th><th>Avg Price</th><th>Max Price</th>
+          <th>Buy Vol</th><th>Sell Vol</th><th>Dominant</th>
+        </tr></thead>
+        <tbody>${rows.map(r => `<tr>
+          <td>${fmtDatetime(r.hour_ts)}</td>
+          <td>${r.trade_count}</td>
+          <td>${fmt(r.total_volume_usd, 0)}</td>
+          <td>$${fmt(r.min_price)}</td>
+          <td>$${fmt(r.avg_price)}</td>
+          <td>$${fmt(r.max_price)}</td>
+          <td class="badge-buy">${fmt(r.buy_volume, 0)}</td>
+          <td class="badge-sell">${fmt(r.sell_volume, 0)}</td>
+          <td class="${r.dominant_side === 'Buy' ? 'badge-buy' : 'badge-sell'}">${r.dominant_side || '—'}</td>
+        </tr>`).join('')}</tbody>
+      </table>`;
+    } catch (e) {
+      el.innerHTML = `<div class="empty-state">Error: ${e.message}</div>`;
+    }
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      const loginVisible = document.getElementById('login-form').style.display !== 'none';
+      if (loginVisible) doLogin(); else doRegister();
+    }
+  });
+</script>
+</body>
+</html>
