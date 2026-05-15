@@ -20,6 +20,8 @@ A distributed real-time cryptocurrency market data platform built as a microserv
 
 The platform is split into five logical layers: data ingestion, stream processing, storage, API services, and the frontend client. Each layer is independently deployable and communicates only through well-defined interfaces — either Kafka topics or HTTP.
 
+![System architecture](images/crypto_architecture.png)
+
 ### Data Ingestion Layer
 
 All market data enters the system through the **Ingestion Service**. In live mode it opens a persistent WebSocket connection to the BitMEX public API and subscribes to `trade` and `quote` channels for the configured symbols (XBTUSD and ETHUSD by default). Each incoming message is normalised into a flat JSON payload and published to one of two Kafka topics: `trades-raw` or `quotes-raw`. The service handles reconnection automatically with exponential backoff, so transient network issues do not cause data loss.
