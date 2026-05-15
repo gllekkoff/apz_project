@@ -9,14 +9,14 @@ import psycopg2
 
 def setup_logging(name: str) -> logging.Logger:
     logging.basicConfig(
-        level=os.getenv("LOG_LEVEL", "INFO"),
+        level=os.getenv("LOG_LEVEL"),
         format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
     )
     return logging.getLogger(name)
 
 
 def pg_connect():
-    dsn = os.getenv("POSTGRES_DSN", "postgresql://crypto:crypto@postgres:5432/crypto")
+    dsn = os.getenv("POSTGRES_DSN")
     last_exc = None
     for _ in range(60):
         try:

@@ -1,10 +1,3 @@
-"""Authentication microservice.
-
-Owns user registration, login, logout, and session validation.
-Users are persisted in the auth Postgres database. Active sessions are opaque
-tokens stored in Redis so multiple auth-service instances share login state.
-"""
-
 import hashlib
 import hmac
 import os
@@ -20,11 +13,11 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Response, status
 from pydantic import BaseModel, Field
 
 
-AUTH_DB_DSN = os.getenv("AUTH_DB_DSN", "postgresql://auth:auth@auth-db:5432/auth")
-REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
-TOKEN_TTL_SECONDS = int(os.getenv("AUTH_TOKEN_TTL_SECONDS", "86400"))
-INSTANCE_ID = os.getenv("INSTANCE_ID", "auth-service")
-PBKDF2_ITERATIONS = int(os.getenv("AUTH_PBKDF2_ITERATIONS", "210000"))
+AUTH_DB_DSN = os.getenv("AUTH_DB_DSN")
+REDIS_URL = os.getenv("REDIS_URL")
+TOKEN_TTL_SECONDS = int(os.getenv("AUTH_TOKEN_TTL_SECONDS"))
+INSTANCE_ID = os.getenv("INSTANCE_ID")
+PBKDF2_ITERATIONS = int(os.getenv("AUTH_PBKDF2_ITERATIONS"))
 
 
 app = FastAPI(

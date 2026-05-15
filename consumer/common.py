@@ -13,7 +13,7 @@ from kafka.errors import NoBrokersAvailable
 
 def setup_logging(name: str) -> logging.Logger:
     logging.basicConfig(
-        level=os.getenv("LOG_LEVEL", "INFO"),
+        level=os.getenv("LOG_LEVEL"),
         format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
     )
     return logging.getLogger(name)
@@ -26,15 +26,13 @@ def parse_bitmex_ts(s: str) -> datetime:
 
 
 def kafka_consumer(topic: str, group_id: str) -> KafkaConsumer:
-    bootstrap = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:29092")
+    bootstrap = os.getenv("KAFKA_BOOTSTRAP_SERVERS")
     for _ in range(30):
         try:
             return KafkaConsumer(
                 topic,
                 bootstrap_servers=bootstrap,
                 group_id=group_id,
-                # `earliest` so warehouse never misses a trade even if the consumer
-                # started after ingestion.
                 auto_offset_reset=os.getenv("KAFKA_OFFSET_RESET", "earliest"),
                 enable_auto_commit=True,
                 value_deserializer=lambda v: json.loads(v.decode("utf-8")),
@@ -45,7 +43,7 @@ def kafka_consumer(topic: str, group_id: str) -> KafkaConsumer:
 
 
 def pg_connect():
-    dsn = os.getenv("POSTGRES_DSN", "postgresql://crypto:crypto@postgres:5432/crypto")
+    dsn = os.getenv("POSTGRES_DSN")
     last_exc = None
     for _ in range(60):
         try:

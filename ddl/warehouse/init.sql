@@ -1,8 +1,3 @@
--- Postgres warehouse schema.
--- Raw tables fed by Kafka consumers; aggregate tables filled by batch jobs.
-
--- ----- Raw data -----
-
 CREATE TABLE IF NOT EXISTS trades (
     trade_id          text PRIMARY KEY,
     symbol            text NOT NULL,
@@ -27,8 +22,6 @@ CREATE TABLE IF NOT EXISTS quotes (
 );
 CREATE INDEX IF NOT EXISTS idx_quotes_symbol_time ON quotes (symbol, quote_time DESC);
 
--- ----- Pre-computed hourly aggregates -----
-
 CREATE TABLE IF NOT EXISTS hourly_reports (
     symbol             text NOT NULL,
     hour_ts            timestamptz NOT NULL,
@@ -44,8 +37,6 @@ CREATE TABLE IF NOT EXISTS hourly_reports (
     computed_at        timestamptz NOT NULL DEFAULT now(),
     PRIMARY KEY (symbol, hour_ts)
 );
-
--- ----- Per hour-of-day trading patterns -----
 
 CREATE TABLE IF NOT EXISTS trading_patterns (
     symbol            text NOT NULL,

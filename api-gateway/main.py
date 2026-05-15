@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 
-LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+LOG_LEVEL = os.getenv("LOG_LEVEL").upper()
 logging.basicConfig(level=LOG_LEVEL, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 log = logging.getLogger("api-gateway")
 
@@ -18,12 +18,10 @@ def _split_csv(value: str) -> List[str]:
     return [v.strip().rstrip("/") for v in value.split(",") if v.strip()]
 
 
-AUTH_SERVICE_URLS = _split_csv(
-    os.getenv("AUTH_SERVICE_URLS", "http://auth-service-1:8000,http://auth-service-2:8000")
-)
-MARKET_SERVICE_URL = os.getenv("MARKET_SERVICE_URL", "http://market-data-service:8000").rstrip("/")
-REPORT_SERVICE_URL = os.getenv("REPORT_SERVICE_URL", "http://reporting-service:8000").rstrip("/")
-UPSTREAM_TIMEOUT_SECONDS = float(os.getenv("UPSTREAM_TIMEOUT_SECONDS", "10"))
+AUTH_SERVICE_URLS = _split_csv(os.getenv("AUTH_SERVICE_URLS"))
+MARKET_SERVICE_URL = os.getenv("MARKET_SERVICE_URL").rstrip("/")
+REPORT_SERVICE_URL = os.getenv("REPORT_SERVICE_URL").rstrip("/")
+UPSTREAM_TIMEOUT_SECONDS = float(os.getenv("UPSTREAM_TIMEOUT_SECONDS"))
 
 if not AUTH_SERVICE_URLS:
     raise RuntimeError("AUTH_SERVICE_URLS must list at least one auth-service base URL")

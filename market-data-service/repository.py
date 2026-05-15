@@ -11,8 +11,8 @@ from models import MomentumRow, Trade, VolatilityAlertRow, WhaleAlertRow
 
 
 def connect_cassandra() -> Session:
-    hosts = [h.strip() for h in os.getenv("CASSANDRA_HOSTS", "cassandra").split(",") if h.strip()]
-    keyspace = os.getenv("CASSANDRA_KEYSPACE", "crypto")
+    hosts = [h.strip() for h in os.getenv("CASSANDRA_HOSTS").split(",") if h.strip()]
+    keyspace = os.getenv("CASSANDRA_KEYSPACE")
     last_exc: Optional[Exception] = None
 
     for _ in range(60):

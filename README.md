@@ -82,6 +82,11 @@ The **Frontend** is a single-page application served by nginx. It is written in 
 
 ## Quick Start
 
+Create a `.env` file:
+```bash
+cp .env.example .env
+```
+
 ```bash
 # Start with synthetic data (no BitMEX connection needed)
 SYNTHETIC_MODE=true docker compose up -d

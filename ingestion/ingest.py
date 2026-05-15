@@ -11,18 +11,18 @@ from typing import Optional
 import websockets
 from aiokafka import AIOKafkaProducer
 
-BITMEX_WS_URL = os.getenv("BITMEX_WS_URL", "wss://www.bitmex.com/realtime")
-KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
-SYMBOLS = [s.strip() for s in os.getenv("SYMBOLS", "XBTUSD,ETHUSD").split(",") if s.strip()]
+BITMEX_WS_URL = os.getenv("BITMEX_WS_URL")
+KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP_SERVERS")
+SYMBOLS = [s.strip() for s in os.getenv("SYMBOLS").split(",") if s.strip()]
 TRADES_TOPIC = os.getenv("TRADES_TOPIC", "trades-raw")
 QUOTES_TOPIC = os.getenv("QUOTES_TOPIC", "quotes-raw")
-SYNTHETIC_MODE = os.getenv("SYNTHETIC_MODE", "false").lower() in ("true", "1", "yes")
-SYNTHETIC_RATE = float(os.getenv("SYNTHETIC_RATE", "10"))
-SYNTHETIC_WHALE_RATE = float(os.getenv("SYNTHETIC_WHALE_RATE", "0.005"))
+SYNTHETIC_MODE = os.getenv("SYNTHETIC_MODE").lower() in ("true", "1", "yes")
+SYNTHETIC_RATE = float(os.getenv("SYNTHETIC_RATE"))
+SYNTHETIC_WHALE_RATE = float(os.getenv("SYNTHETIC_WHALE_RATE"))
 RECONNECT_BACKOFF_SECONDS = 5
 
 logging.basicConfig(
-    level=os.getenv("LOG_LEVEL", "INFO"),
+    level=os.getenv("LOG_LEVEL"),
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
 )
 log = logging.getLogger("ingest")

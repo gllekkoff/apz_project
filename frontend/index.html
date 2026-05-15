@@ -500,7 +500,7 @@
 
   function showError(msg) {
     const el = document.getElementById('auth-error');
-    el.textContent = msg;
+    el.textContent = Array.isArray(msg) ? msg.map(e => e.msg).join(', ') : msg;
     el.style.display = 'block';
   }
 

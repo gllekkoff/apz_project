@@ -29,7 +29,7 @@ from pydantic import BaseModel
 # ---------- Connections ----------
 
 def connect_cassandra() -> Session:
-    hosts = [h.strip() for h in os.getenv("CASSANDRA_HOSTS", "cassandra").split(",") if h.strip()]
+    hosts = [h.strip() for h in os.getenv("CASSANDRA_HOSTS").split(",") if h.strip()]
     last_exc: Optional[Exception] = None
     for _ in range(60):
         try:
@@ -40,7 +40,7 @@ def connect_cassandra() -> Session:
     raise RuntimeError(f"Cassandra not reachable: {last_exc}")
 
 
-PG_DSN = os.getenv("POSTGRES_DSN", "postgresql://crypto:crypto@postgres:5432/crypto")
+PG_DSN = os.getenv("POSTGRES_DSN")
 
 
 def pg_conn():

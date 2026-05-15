@@ -5,7 +5,7 @@ from typing import Optional
 import psycopg2
 import psycopg2.extras
 
-PG_DSN = os.getenv("POSTGRES_DSN", "postgresql://crypto:crypto@postgres:5432/crypto")
+PG_DSN = os.getenv("POSTGRES_DSN")
 
 
 def pg_connect():

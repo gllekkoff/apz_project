@@ -13,7 +13,7 @@ from kafka.errors import NoBrokersAvailable
 
 def setup_logging(name: str) -> logging.Logger:
     logging.basicConfig(
-        level=os.getenv("LOG_LEVEL", "INFO"),
+        level=os.getenv("LOG_LEVEL"),
         format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
     )
     return logging.getLogger(name)
@@ -27,8 +27,7 @@ def parse_bitmex_ts(s: str) -> datetime:
 
 
 def kafka_consumer(topic: str, group_id: str, bootstrap: str = None) -> KafkaConsumer:
-    bootstrap = bootstrap or os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
-    # Retry until the broker is reachable; useful at cold start in docker-compose.
+    bootstrap = bootstrap or os.getenv("KAFKA_BOOTSTRAP_SERVERS")
     for attempt in range(30):
         try:
             return KafkaConsumer(
@@ -46,7 +45,7 @@ def kafka_consumer(topic: str, group_id: str, bootstrap: str = None) -> KafkaCon
 
 
 def kafka_producer(bootstrap: str = None) -> KafkaProducer:
-    bootstrap = bootstrap or os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
+    bootstrap = bootstrap or os.getenv("KAFKA_BOOTSTRAP_SERVERS")
     for attempt in range(30):
         try:
             return KafkaProducer(
@@ -62,7 +61,7 @@ def kafka_producer(bootstrap: str = None) -> KafkaProducer:
 
 
 def cassandra_session(keyspace: str = "crypto") -> Session:
-    hosts = [h.strip() for h in os.getenv("CASSANDRA_HOSTS", "cassandra").split(",") if h.strip()]
+    hosts = [h.strip() for h in os.getenv("CASSANDRA_HOSTS").split(",") if h.strip()]
     last_exc = None
     for attempt in range(60):
         try:
